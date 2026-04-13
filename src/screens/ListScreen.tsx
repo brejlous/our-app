@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
@@ -127,7 +126,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
     <SafeAreaView style={styles.container} edges={['top']}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
     >
       {/* Header */}
       <View style={styles.header}>
