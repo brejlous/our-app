@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
 import { useList } from '../hooks/useList';
 import { useItems } from '../hooks/useItems';
 import { createList, addItem, deleteItem, toggleItem } from '../lib/firestore';
-import { ShoppingItem } from '../types';
 import ItemRow from '../components/ItemRow';
 import AddItemBar from '../components/AddItemBar';
 import InviteModal from '../components/InviteModal';
@@ -31,19 +29,6 @@ export default function ListScreen({ user, onLogOut }: Props) {
   const [showInvite, setShowInvite] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const flatListRef = useRef<FlatList<ShoppingItem>>(null);
-
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
-    });
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
-    return () => { show.remove(); hide.remove(); };
-  }, []);
 
   async function handleCreateList() {
     setCreatingList(true);
@@ -163,12 +148,14 @@ export default function ListScreen({ user, onLogOut }: Props) {
         </View>
       </View>
 
-      {/* List + input as footer */}
+      {/* Add item input — above the list, never covered by keyboard */}
+      <AddItemBar onAdd={handleAddItem} />
+
+      {/* List */}
       {itemsLoading ? (
         <ActivityIndicator style={{ flex: 1 }} color="#2563eb" />
       ) : (
         <FlatList
-          ref={flatListRef}
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -178,10 +165,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
               onDelete={() => handleDelete(item.id)}
             />
           )}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: keyboardHeight },
-          ]}
+          contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <View style={styles.emptyBox}>
@@ -190,7 +174,6 @@ export default function ListScreen({ user, onLogOut }: Props) {
               </Text>
             </View>
           }
-          ListFooterComponent={<AddItemBar onAdd={handleAddItem} />}
         />
       )}
 
