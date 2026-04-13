@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Text,
   StyleSheet,
-  Platform,
 } from 'react-native';
 
 interface Props {
@@ -51,11 +50,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 16,
     gap: 10,
   },
   input: {

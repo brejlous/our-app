@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
 import { useList } from '../hooks/useList';
 import { useItems } from '../hooks/useItems';
 import { createList, addItem, deleteItem, toggleItem } from '../lib/firestore';
+import { ShoppingItem } from '../types';
 import ItemRow from '../components/ItemRow';
 import AddItemBar from '../components/AddItemBar';
 import InviteModal from '../components/InviteModal';
@@ -31,6 +32,16 @@ export default function ListScreen({ user, onLogOut }: Props) {
   const [showJoin, setShowJoin] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
 
+  const flatListRef = useRef<FlatList<ShoppingItem>>(null);
+
+  // Scroll to bottom when keyboard opens so the input stays visible
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, []);
+
   async function handleCreateList() {
     setCreatingList(true);
     try {
@@ -46,6 +57,8 @@ export default function ListScreen({ user, onLogOut }: Props) {
     if (!list) return;
     try {
       await addItem(list.id, text, user.uid);
+      // Scroll to bottom after adding so the input stays in view
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     } catch {
       Alert.alert('Chyba', 'Nepodařilo se přidat položku.');
     }
@@ -123,11 +136,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
   const partnerCount = list ? list.members.length : 1;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior="padding"
-    >
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -153,11 +162,12 @@ export default function ListScreen({ user, onLogOut }: Props) {
         </View>
       </View>
 
-      {/* List */}
+      {/* List + input as footer */}
       {itemsLoading ? (
         <ActivityIndicator style={{ flex: 1 }} color="#2563eb" />
       ) : (
         <FlatList
+          ref={flatListRef}
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -168,6 +178,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
             />
           )}
           contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Text style={styles.emptyText}>
@@ -175,11 +186,11 @@ export default function ListScreen({ user, onLogOut }: Props) {
               </Text>
             </View>
           }
+          ListFooterComponent={
+            <AddItemBar onAdd={handleAddItem} />
+          }
         />
       )}
-
-      {/* Add item bar */}
-      <AddItemBar onAdd={handleAddItem} />
 
       {/* Invite modal */}
       {showInvite && list && (
@@ -189,7 +200,6 @@ export default function ListScreen({ user, onLogOut }: Props) {
           onClose={() => setShowInvite(false)}
         />
       )}
-    </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -255,11 +265,12 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 4,
+    paddingBottom: 0,
   },
   emptyBox: {
     alignItems: 'center',
     paddingTop: 60,
+    paddingBottom: 20,
   },
   emptyText: {
     color: '#bbb',
