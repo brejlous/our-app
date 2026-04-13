@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
@@ -123,6 +125,10 @@ export default function ListScreen({ user, onLogOut }: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -184,6 +190,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
           onClose={() => setShowInvite(false)}
         />
       )}
+    </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
