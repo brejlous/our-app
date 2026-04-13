@@ -1,18 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
+  FlatList,
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Keyboard,
 } from 'react-native';
-import { KeyboardAwareFlatList } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
 import { useList } from '../hooks/useList';
 import { useItems } from '../hooks/useItems';
 import { createList, addItem, deleteItem, toggleItem } from '../lib/firestore';
+import { ShoppingItem } from '../types';
 import ItemRow from '../components/ItemRow';
 import AddItemBar from '../components/AddItemBar';
 import InviteModal from '../components/InviteModal';
@@ -29,6 +31,19 @@ export default function ListScreen({ user, onLogOut }: Props) {
   const [showInvite, setShowInvite] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const flatListRef = useRef<FlatList<ShoppingItem>>(null);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   async function handleCreateList() {
     setCreatingList(true);
@@ -152,7 +167,8 @@ export default function ListScreen({ user, onLogOut }: Props) {
       {itemsLoading ? (
         <ActivityIndicator style={{ flex: 1 }} color="#2563eb" />
       ) : (
-        <KeyboardAwareFlatList
+        <FlatList
+          ref={flatListRef}
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -162,10 +178,11 @@ export default function ListScreen({ user, onLogOut }: Props) {
               onDelete={() => handleDelete(item.id)}
             />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: keyboardHeight },
+          ]}
           keyboardShouldPersistTaps="handled"
-          enableOnAndroid
-          extraScrollHeight={20}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Text style={styles.emptyText}>
@@ -173,9 +190,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
               </Text>
             </View>
           }
-          ListFooterComponent={
-            <AddItemBar onAdd={handleAddItem} />
-          }
+          ListFooterComponent={<AddItemBar onAdd={handleAddItem} />}
         />
       )}
 
