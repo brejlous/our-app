@@ -117,6 +117,10 @@ export default function ListScreen({ user, onLogOut }: Props) {
   }
 
   // ── Main list view ─────────────────────────────────────────────────────────
+  const sortedItems = [...items].sort((a, b) => {
+    if (a.checked === b.checked) return 0;
+    return a.checked ? 1 : -1;
+  });
   const checkedCount = items.filter((i) => i.checked).length;
   const totalCount = items.length;
   const partnerCount = list ? list.members.length : 1;
@@ -156,7 +160,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
         <ActivityIndicator style={{ flex: 1 }} color="#2563eb" />
       ) : (
         <FlatList
-          data={items}
+          data={sortedItems}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <ItemRow
