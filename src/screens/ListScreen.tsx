@@ -1,20 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Keyboard,
 } from 'react-native';
+import { KeyboardAwareFlatList } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
 import { useList } from '../hooks/useList';
 import { useItems } from '../hooks/useItems';
 import { createList, addItem, deleteItem, toggleItem } from '../lib/firestore';
-import { ShoppingItem } from '../types';
 import ItemRow from '../components/ItemRow';
 import AddItemBar from '../components/AddItemBar';
 import InviteModal from '../components/InviteModal';
@@ -32,16 +30,6 @@ export default function ListScreen({ user, onLogOut }: Props) {
   const [showJoin, setShowJoin] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
 
-  const flatListRef = useRef<FlatList<ShoppingItem>>(null);
-
-  // Scroll to bottom when keyboard opens so the input stays visible
-  useEffect(() => {
-    const sub = Keyboard.addListener('keyboardDidShow', () => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    });
-    return () => sub.remove();
-  }, []);
-
   async function handleCreateList() {
     setCreatingList(true);
     try {
@@ -57,8 +45,6 @@ export default function ListScreen({ user, onLogOut }: Props) {
     if (!list) return;
     try {
       await addItem(list.id, text, user.uid);
-      // Scroll to bottom after adding so the input stays in view
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     } catch {
       Alert.alert('Chyba', 'Nepodařilo se přidat položku.');
     }
@@ -166,8 +152,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
       {itemsLoading ? (
         <ActivityIndicator style={{ flex: 1 }} color="#2563eb" />
       ) : (
-        <FlatList
-          ref={flatListRef}
+        <KeyboardAwareFlatList
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -179,6 +164,8 @@ export default function ListScreen({ user, onLogOut }: Props) {
           )}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
+          enableOnAndroid
+          extraScrollHeight={20}
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Text style={styles.emptyText}>
