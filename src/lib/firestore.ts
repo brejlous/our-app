@@ -62,8 +62,10 @@ export async function joinListByCode(code: string, userId: string): Promise<void
     if (members.length >= 2) {
       throw new Error('Seznam je již plný (max. 2 členové).');
     }
+    // Use explicit array instead of arrayUnion so security rules
+    // can evaluate request.resource.data.members correctly
     transaction.update(listDoc.ref, {
-      members: arrayUnion(userId),
+      members: [...members, userId],
     });
   });
 }
