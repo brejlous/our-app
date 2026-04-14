@@ -10,9 +10,10 @@ interface Props {
   item: ShoppingItem;
   onToggle: () => void;
   onDelete: () => void;
+  onEditQuantity: () => void;
 }
 
-export default function SwipeableItemRow({ item, onToggle, onDelete }: Props) {
+export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuantity }: Props) {
   const swipeableRef = useRef<Swipeable>(null);
 
   function handleDelete() {
@@ -39,6 +40,8 @@ export default function SwipeableItemRow({ item, onToggle, onDelete }: Props) {
     );
   }
 
+  const hasQuantity = item.quantity != null && item.unit != null;
+
   return (
     <GestureHandlerRootView>
       <Swipeable
@@ -50,23 +53,30 @@ export default function SwipeableItemRow({ item, onToggle, onDelete }: Props) {
           handleDelete();
         }}
       >
-        <TouchableOpacity
-          style={styles.row}
-          onPress={onToggle}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
-            {item.checked && <Text style={styles.checkmark}>✓</Text>}
-          </View>
-          <Text style={[styles.text, item.checked && styles.textChecked]}>
-            {item.text}
-          </Text>
-          {item.quantity != null && item.unit != null && (
-            <Text style={[styles.quantity, item.checked && styles.quantityChecked]}>
-              {item.quantity} {item.unit}
+        <View style={styles.row}>
+          <TouchableOpacity
+            style={styles.mainArea}
+            onPress={onToggle}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
+              {item.checked && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={[styles.text, item.checked && styles.textChecked]}>
+              {item.text}
             </Text>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onEditQuantity} style={styles.quantityArea} activeOpacity={0.6}>
+            {hasQuantity ? (
+              <Text style={[styles.quantityBadge, item.checked && styles.quantityChecked]}>
+                {item.quantity} {item.unit}
+              </Text>
+            ) : (
+              <Text style={styles.addQuantityBtn}>+</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </Swipeable>
     </GestureHandlerRootView>
   );
@@ -78,15 +88,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 8,
     marginBottom: 8,
     borderRadius: 12,
-    gap: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+  },
+  mainArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   checkbox: {
     width: 24,
@@ -115,13 +131,24 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: '#aaa',
   },
-  quantity: {
+  quantityArea: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  quantityBadge: {
     fontSize: 13,
     color: '#888',
     fontWeight: '500',
   },
   quantityChecked: {
     color: '#ccc',
+  },
+  addQuantityBtn: {
+    fontSize: 18,
+    color: '#c7d7f8',
+    fontWeight: '400',
   },
   deleteAction: {
     backgroundColor: '#ef4444',

@@ -8,16 +8,22 @@ import {
   StyleSheet,
   Alert,
   Animated,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
 import { useList } from '../hooks/useList';
 import { useItems } from '../hooks/useItems';
-import { createList, addItem, deleteItem, toggleItem } from '../lib/firestore';
+import { createList, addItem, deleteItem, toggleItem, updateItemQuantity } from '../lib/firestore';
 import { ShoppingItem, ItemUnit } from '../types';
 import SwipeableItemRow from '../components/SwipeableItemRow';
 import AddItemBar from '../components/AddItemBar';
 import InviteModal from '../components/InviteModal';
+
+const UNITS: ItemUnit[] = ['ks', 'g', 'kg', 'ml', 'l'];
 
 interface Props {
   user: User;
@@ -36,6 +42,11 @@ export default function ListScreen({ user, onLogOut }: Props) {
   const [deletedItem, setDeletedItem] = useState<ShoppingItem | null>(null);
   const undoOpacity = useRef(new Animated.Value(0)).current;
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Edit quantity modal state
+  const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
+  const [editQuantityText, setEditQuantityText] = useState('');
+  const [editUnit, setEditUnit] = useState<ItemUnit>('ks');
 
   async function handleCreateList() {
     setCreatingList(true);
@@ -68,11 +79,8 @@ export default function ListScreen({ user, onLogOut }: Props) {
 
   async function handleDelete(item: ShoppingItem) {
     if (!list) return;
-    // Save item for potential undo, then delete after 5s
     setDeletedItem(item);
-    // Fade in undo toast
     Animated.timing(undoOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    // Clear previous timer
     if (undoTimer.current) clearTimeout(undoTimer.current);
     undoTimer.current = setTimeout(async () => {
       setDeletedItem(null);
@@ -89,6 +97,24 @@ export default function ListScreen({ user, onLogOut }: Props) {
     if (undoTimer.current) clearTimeout(undoTimer.current);
     setDeletedItem(null);
     Animated.timing(undoOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+  }
+
+  function openEditQuantity(item: ShoppingItem) {
+    setEditingItem(item);
+    setEditQuantityText(item.quantity != null ? String(item.quantity) : '');
+    setEditUnit(item.unit ?? 'ks');
+  }
+
+  async function handleSaveQuantity() {
+    if (!list || !editingItem) return;
+    const quantity = editQuantityText.trim() ? parseFloat(editQuantityText) : null;
+    const unit = quantity != null ? editUnit : null;
+    try {
+      await updateItemQuantity(list.id, editingItem.id, quantity, unit);
+    } catch {
+      Alert.alert('Chyba', 'Nepodařilo se uložit množství.');
+    }
+    setEditingItem(null);
   }
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -175,7 +201,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
         </View>
       </View>
 
-      {/* Add item input — above the list, never covered by keyboard */}
+      {/* Add item input */}
       <AddItemBar onAdd={handleAddItem} />
 
       {/* List */}
@@ -191,6 +217,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
                 item={item}
                 onToggle={() => handleToggle(item.id, item.checked)}
                 onDelete={() => handleDelete(item)}
+                onEditQuantity={() => openEditQuantity(item)}
               />
             )}
             contentContainerStyle={styles.listContent}
@@ -222,6 +249,69 @@ export default function ListScreen({ user, onLogOut }: Props) {
           onClose={() => setShowInvite(false)}
         />
       )}
+
+      {/* Edit quantity modal */}
+      <Modal
+        visible={editingItem != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingItem(null)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            onPress={() => setEditingItem(null)}
+            activeOpacity={1}
+          />
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>
+              {editingItem?.text}
+            </Text>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Množství (nechej prázdné pro odstranění)"
+              placeholderTextColor="#999"
+              value={editQuantityText}
+              onChangeText={setEditQuantityText}
+              keyboardType="numeric"
+              autoFocus
+            />
+
+            <View style={styles.unitRow}>
+              {UNITS.map((u) => (
+                <TouchableOpacity
+                  key={u}
+                  style={[styles.unitBtn, editUnit === u && styles.unitBtnActive]}
+                  onPress={() => setEditUnit(u)}
+                >
+                  <Text style={[styles.unitBtnText, editUnit === u && styles.unitBtnTextActive]}>
+                    {u}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setEditingItem(null)}
+              >
+                <Text style={styles.modalCancelText}>Zrušit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSaveBtn}
+                onPress={handleSaveQuantity}
+              >
+                <Text style={styles.modalSaveText}>Uložit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -355,6 +445,78 @@ const styles = StyleSheet.create({
   },
   undoButton: {
     color: '#60a5fa',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  // Edit quantity modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    gap: 14,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  modalInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1a1a1a',
+  },
+  unitRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  unitBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  unitBtnActive: {
+    backgroundColor: '#2563eb',
+  },
+  unitBtnText: {
+    fontSize: 14,
+    color: '#555',
+    fontWeight: '500',
+  },
+  unitBtnTextActive: {
+    color: '#fff',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 4,
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  modalCancelText: {
+    color: '#888',
+    fontSize: 15,
+  },
+  modalSaveBtn: {
+    backgroundColor: '#2563eb',
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  modalSaveText: {
+    color: '#fff',
     fontSize: 15,
     fontWeight: '600',
   },

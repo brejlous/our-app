@@ -93,6 +93,15 @@ export async function deleteItem(listId: string, itemId: string): Promise<void> 
   await deleteDoc(doc(db, 'lists', listId, 'items', itemId));
 }
 
+export async function updateItemQuantity(
+  listId: string,
+  itemId: string,
+  quantity: number | null,
+  unit: string | null,
+): Promise<void> {
+  await updateDoc(doc(db, 'lists', listId, 'items', itemId), { quantity, unit });
+}
+
 export async function toggleItem(
   listId: string,
   itemId: string,
