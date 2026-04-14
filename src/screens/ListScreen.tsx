@@ -182,34 +182,36 @@ export default function ListScreen({ user, onLogOut }: Props) {
       {itemsLoading ? (
         <ActivityIndicator style={{ flex: 1 }} color="#2563eb" />
       ) : (
-        <FlatList
-          data={sortedItems.filter(i => i.id !== deletedItem?.id)}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <SwipeableItemRow
-              item={item}
-              onToggle={() => handleToggle(item.id, item.checked)}
-              onDelete={() => handleDelete(item)}
-            />
-          )}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>
-                Zatím nic. Přidej první položku níže!
-              </Text>
-            </View>
-          }
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            data={sortedItems.filter(i => i.id !== deletedItem?.id)}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <SwipeableItemRow
+                item={item}
+                onToggle={() => handleToggle(item.id, item.checked)}
+                onDelete={() => handleDelete(item)}
+              />
+            )}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyText}>
+                  Zatím nic. Přidej první položku níže!
+                </Text>
+              </View>
+            }
+          />
 
-        {/* Undo toast */}
-        <Animated.View style={[styles.undoToast, { opacity: undoOpacity }]}>
-          <Text style={styles.undoText}>Položka smazána</Text>
-          <TouchableOpacity onPress={handleUndo}>
-            <Text style={styles.undoButton}>Vrátit zpět</Text>
-          </TouchableOpacity>
-        </Animated.View>
+          {/* Undo toast */}
+          <Animated.View style={[styles.undoToast, { opacity: undoOpacity }]}>
+            <Text style={styles.undoText}>Položka smazána</Text>
+            <TouchableOpacity onPress={handleUndo}>
+              <Text style={styles.undoButton}>Vrátit zpět</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       )}
 
       {/* Invite modal */}
