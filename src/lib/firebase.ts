@@ -1,7 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth } from 'firebase/auth';
-// getReactNativePersistence lives in the react-native export condition of @firebase/auth,
-// which TypeScript resolves correctly due to customConditions: ["react-native"] in tsconfig.
+import { initializeAuth, getAuth } from 'firebase/auth';
+// getReactNativePersistence lives in @firebase/auth's react-native bundle.
+// Metro resolves it correctly at runtime; the .d.ts augmentation satisfies TypeScript.
 import { getReactNativePersistence } from '@firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,19 +15,13 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Prevent duplicate initialization on hot reload
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const existingApps = getApps();
+const app = existingApps.length === 0 ? initializeApp(firebaseConfig) : existingApps[0];
 
-// initializeAuth must only be called once; fall back to getAuth on subsequent module loads
-let auth: ReturnType<typeof initializeAuth>;
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} catch {
-  const { getAuth } = require('firebase/auth');
-  auth = getAuth(app);
-}
+// On first load: initialize with AsyncStorage persistence.
+// On Expo fast refresh: app already exists, auth is already initialized — getAuth returns it.
+export const auth = existingApps.length === 0
+  ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
+  : getAuth(app);
 
-export { auth };
 export const db = getFirestore(app);

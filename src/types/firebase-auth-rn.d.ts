@@ -1,8 +1,6 @@
-// TypeScript resolves @firebase/auth to its browser types because the `types`
-// export condition always takes precedence over `react-native` in TypeScript's
-// exports resolution. At runtime, Metro correctly resolves to the RN bundle
-// (dist/rn/index.js) which exports getReactNativePersistence.
-// This declaration re-exports the missing symbol so TypeScript is satisfied.
+// TypeScript resolves @firebase/auth to its browser types, which don't include
+// getReactNativePersistence. At runtime, Metro correctly resolves to the RN bundle
+// (dist/rn/index.js) which exports it. This declaration satisfies TypeScript.
 import type { Persistence } from 'firebase/auth';
 
 declare module '@firebase/auth' {
