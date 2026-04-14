@@ -1,9 +1,6 @@
 import React, { useRef } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
-import {
-  GestureHandlerRootView,
-  Swipeable,
-} from 'react-native-gesture-handler';
+import { Swipeable } from 'react-native-gesture-handler';
 import { ShoppingItem } from '../types';
 
 interface Props {
@@ -43,8 +40,7 @@ export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuant
   const hasQuantity = item.quantity != null && item.unit != null;
 
   return (
-    <GestureHandlerRootView>
-      <Swipeable
+    <Swipeable
         ref={swipeableRef}
         renderRightActions={renderRightActions}
         rightThreshold={40}
@@ -77,8 +73,7 @@ export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuant
             )}
           </TouchableOpacity>
         </View>
-      </Swipeable>
-    </GestureHandlerRootView>
+    </Swipeable>
   );
 }
 
