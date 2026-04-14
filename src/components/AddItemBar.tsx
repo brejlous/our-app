@@ -16,24 +16,21 @@ interface Props {
 
 export default function AddItemBar({ onAdd }: Props) {
   const [text, setText] = useState('');
-  const [showQuantity, setShowQuantity] = useState(false);
   const [quantityText, setQuantityText] = useState('');
   const [unit, setUnit] = useState<ItemUnit>('ks');
 
   function handleAdd() {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const quantity = showQuantity && quantityText ? parseFloat(quantityText) : null;
-    const resolvedUnit = showQuantity && quantityText ? unit : null;
-    onAdd(trimmed, quantity, resolvedUnit);
+    const quantity = quantityText.trim() ? parseFloat(quantityText) : null;
+    onAdd(trimmed, quantity, quantity != null ? unit : null);
     setText('');
     setQuantityText('');
-    setShowQuantity(false);
   }
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.container}>
+      <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
           placeholder="Přidat položku..."
@@ -54,36 +51,30 @@ export default function AddItemBar({ onAdd }: Props) {
         </TouchableOpacity>
       </View>
 
-      {showQuantity ? (
-        <View style={styles.quantityRow}>
-          <TextInput
-            style={styles.quantityInput}
-            placeholder="Množství"
-            placeholderTextColor="#999"
-            value={quantityText}
-            onChangeText={setQuantityText}
-            keyboardType="numeric"
-            returnKeyType="done"
-          />
-          <View style={styles.unitRow}>
-            {UNITS.map((u) => (
-              <TouchableOpacity
-                key={u}
-                style={[styles.unitBtn, unit === u && styles.unitBtnActive]}
-                onPress={() => setUnit(u)}
-              >
-                <Text style={[styles.unitBtnText, unit === u && styles.unitBtnTextActive]}>
-                  {u}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+      <View style={styles.quantityRow}>
+        <TextInput
+          style={styles.quantityInput}
+          placeholder="Množství"
+          placeholderTextColor="#bbb"
+          value={quantityText}
+          onChangeText={setQuantityText}
+          keyboardType="numeric"
+          returnKeyType="done"
+        />
+        <View style={styles.unitRow}>
+          {UNITS.map((u) => (
+            <TouchableOpacity
+              key={u}
+              style={[styles.unitBtn, unit === u && quantityText ? styles.unitBtnActive : null]}
+              onPress={() => setUnit(u)}
+            >
+              <Text style={[styles.unitBtnText, unit === u && quantityText ? styles.unitBtnTextActive : null]}>
+                {u}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-      ) : (
-        <TouchableOpacity onPress={() => setShowQuantity(true)} style={styles.addQuantityLink}>
-          <Text style={styles.addQuantityText}>+ přidat množství</Text>
-        </TouchableOpacity>
-      )}
+      </View>
     </View>
   );
 }
@@ -98,7 +89,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     gap: 8,
   },
-  container: {
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -129,13 +120,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 28,
   },
-  addQuantityLink: {
-    paddingVertical: 2,
-  },
-  addQuantityText: {
-    color: '#2563eb',
-    fontSize: 13,
-  },
   quantityRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -145,8 +129,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
+    paddingVertical: 8,
+    fontSize: 14,
     color: '#1a1a1a',
     width: 90,
   },
@@ -157,7 +141,7 @@ const styles = StyleSheet.create({
   },
   unitBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 8,
     backgroundColor: '#f5f5f5',
   },
@@ -166,7 +150,7 @@ const styles = StyleSheet.create({
   },
   unitBtnText: {
     fontSize: 13,
-    color: '#555',
+    color: '#aaa',
     fontWeight: '500',
   },
   unitBtnTextActive: {

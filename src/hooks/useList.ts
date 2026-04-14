@@ -1,56 +1,30 @@
 import { useState, useEffect } from 'react';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-} from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { ShoppingList } from '../types';
 
-type ListStatus = 'loading' | 'ready' | 'needs-setup';
-
-interface UseListReturn {
-  list: ShoppingList | null;
-  status: ListStatus;
-}
-
-export function useList(userId: string | undefined): UseListReturn {
+export function useListById(listId: string | undefined) {
   const [list, setList] = useState<ShoppingList | null>(null);
-  const [status, setStatus] = useState<ListStatus>('loading');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) {
-      setStatus('needs-setup');
-      setList(null);
+    if (!listId) {
+      setLoading(false);
       return;
     }
-
-    const q = query(
-      collection(db, 'lists'),
-      where('members', 'array-contains', userId)
-    );
-
     const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        if (snapshot.empty) {
-          setList(null);
-          setStatus('needs-setup');
-        } else {
-          const doc = snapshot.docs[0];
-          setList({ id: doc.id, ...doc.data() } as ShoppingList);
-          setStatus('ready');
-        }
+      doc(db, 'lists', listId),
+      (snap) => {
+        setList(snap.exists() ? ({ id: snap.id, ...snap.data() } as ShoppingList) : null);
+        setLoading(false);
       },
-      (error) => {
-        console.error('List snapshot error:', error);
-        setStatus('needs-setup');
+      (err) => {
+        console.error('useListById error:', err);
+        setLoading(false);
       }
     );
-
     return unsubscribe;
-  }, [userId]);
+  }, [listId]);
 
-  return { list, status };
+  return { list, loading };
 }

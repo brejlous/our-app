@@ -2,15 +2,19 @@ import React from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from './src/hooks/useAuth';
 import LoginScreen from './src/screens/LoginScreen';
+import ListsScreen from './src/screens/ListsScreen';
 import ListScreen from './src/screens/ListScreen';
+import { RootStackParamList } from './src/types/navigation';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   const { user, status, logOut } = useAuth();
 
-  // Wait for Firebase to resolve persisted auth state before rendering anything.
-  // This prevents a flash of the login screen for already-logged-in users.
   if (status === 'loading') {
     return (
       <View style={styles.splash}>
@@ -23,7 +27,16 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       {user ? (
-        <ListScreen user={user} onLogOut={logOut} />
+        <NavigationContainer>
+          <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+            <Stack.Screen name="Lists">
+              {(props) => <ListsScreen {...props} user={user} onLogOut={logOut} />}
+            </Stack.Screen>
+            <Stack.Screen name="Items">
+              {(props) => <ListScreen {...props} user={user} />}
+            </Stack.Screen>
+          </Stack.Navigator>
+        </NavigationContainer>
       ) : (
         <LoginScreen />
       )}

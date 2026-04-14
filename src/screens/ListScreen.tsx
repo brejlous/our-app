@@ -15,28 +15,26 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
-import { useList } from '../hooks/useList';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useListById } from '../hooks/useList';
 import { useItems } from '../hooks/useItems';
-import { createList, addItem, deleteItem, toggleItem, updateItemQuantity } from '../lib/firestore';
+import { addItem, deleteItem, toggleItem, updateItemQuantity } from '../lib/firestore';
 import { ShoppingItem, ItemUnit } from '../types';
+import { RootStackParamList } from '../types/navigation';
 import SwipeableItemRow from '../components/SwipeableItemRow';
 import AddItemBar from '../components/AddItemBar';
 import InviteModal from '../components/InviteModal';
 
 const UNITS: ItemUnit[] = ['ks', 'g', 'kg', 'ml', 'l'];
 
-interface Props {
-  user: User;
-  onLogOut: () => void;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'Items'> & { user: User };
 
-export default function ListScreen({ user, onLogOut }: Props) {
-  const { list, status: listStatus } = useList(user.uid);
-  const { items, loading: itemsLoading } = useItems(list?.id);
+export default function ListScreen({ user, route, navigation }: Props) {
+  const { listId } = route.params;
+  const { list } = useListById(listId);
+  const { items, loading: itemsLoading } = useItems(listId);
 
   const [showInvite, setShowInvite] = useState(false);
-  const [showJoin, setShowJoin] = useState(false);
-  const [creatingList, setCreatingList] = useState(false);
 
   // Undo delete state
   const [deletedItem, setDeletedItem] = useState<ShoppingItem | null>(null);
@@ -48,37 +46,23 @@ export default function ListScreen({ user, onLogOut }: Props) {
   const [editQuantityText, setEditQuantityText] = useState('');
   const [editUnit, setEditUnit] = useState<ItemUnit>('ks');
 
-  async function handleCreateList() {
-    setCreatingList(true);
-    try {
-      await createList(user.uid);
-    } catch (error) {
-      Alert.alert('Chyba', 'Nepodařilo se vytvořit seznam.');
-    } finally {
-      setCreatingList(false);
-    }
-  }
-
   async function handleAddItem(text: string, quantity: number | null, unit: ItemUnit | null) {
-    if (!list) return;
     try {
-      await addItem(list.id, text, user.uid, quantity, unit);
+      await addItem(listId, text, user.uid, quantity, unit);
     } catch {
       Alert.alert('Chyba', 'Nepodařilo se přidat položku.');
     }
   }
 
   async function handleToggle(itemId: string, checked: boolean) {
-    if (!list) return;
     try {
-      await toggleItem(list.id, itemId, !checked, user.uid);
+      await toggleItem(listId, itemId, !checked, user.uid);
     } catch {
       Alert.alert('Chyba', 'Nepodařilo se aktualizovat položku.');
     }
   }
 
   async function handleDelete(item: ShoppingItem) {
-    if (!list) return;
     setDeletedItem(item);
     Animated.timing(undoOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     if (undoTimer.current) clearTimeout(undoTimer.current);
@@ -86,7 +70,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
       setDeletedItem(null);
       Animated.timing(undoOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
       try {
-        await deleteItem(list.id, item.id);
+        await deleteItem(listId, item.id);
       } catch {
         Alert.alert('Chyba', 'Nepodařilo se smazat položku.');
       }
@@ -106,66 +90,17 @@ export default function ListScreen({ user, onLogOut }: Props) {
   }
 
   async function handleSaveQuantity() {
-    if (!list || !editingItem) return;
+    if (!editingItem) return;
     const quantity = editQuantityText.trim() ? parseFloat(editQuantityText) : null;
     const unit = quantity != null ? editUnit : null;
     try {
-      await updateItemQuantity(list.id, editingItem.id, quantity, unit);
+      await updateItemQuantity(listId, editingItem.id, quantity, unit);
     } catch {
       Alert.alert('Chyba', 'Nepodařilo se uložit množství.');
     }
     setEditingItem(null);
   }
 
-  // ── Loading state ──────────────────────────────────────────────────────────
-  if (listStatus === 'loading') {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </SafeAreaView>
-    );
-  }
-
-  // ── Setup state — no list yet ──────────────────────────────────────────────
-  if (listStatus === 'needs-setup') {
-    return (
-      <SafeAreaView style={styles.centered}>
-        <Text style={styles.setupTitle}>Vítej! 👋</Text>
-        <Text style={styles.setupBody}>
-          Vytvoř nový seznam nebo se připoj k existujícímu pomocí kódu od partnera.
-        </Text>
-
-        <TouchableOpacity
-          style={[styles.setupButton, creatingList && styles.buttonDisabled]}
-          onPress={handleCreateList}
-          disabled={creatingList}
-        >
-          {creatingList ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.setupButtonText}>Vytvořit nový seznam</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.setupButtonSecondary}
-          onPress={() => setShowJoin(true)}
-        >
-          <Text style={styles.setupButtonSecondaryText}>Mám kód od partnera</Text>
-        </TouchableOpacity>
-
-        {showJoin && (
-          <InviteModal
-            mode="join"
-            userId={user.uid}
-            onClose={() => setShowJoin(false)}
-          />
-        )}
-      </SafeAreaView>
-    );
-  }
-
-  // ── Main list view ─────────────────────────────────────────────────────────
   const visibleItems = items.filter(i => i.id !== deletedItem?.id);
   const unchecked = visibleItems.filter(i => !i.checked);
   const checked = visibleItems.filter(i => i.checked);
@@ -175,8 +110,6 @@ export default function ListScreen({ user, onLogOut }: Props) {
     ? [...unchecked, { type: 'separator', count: checked.length }, ...checked]
     : [...unchecked, ...checked];
 
-  const checkedCount = checked.length;
-  const totalCount = items.length;
   const partnerCount = list ? list.members.length : 1;
 
   return (
@@ -184,25 +117,24 @@ export default function ListScreen({ user, onLogOut }: Props) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>🛒 Nákupní seznam</Text>
-          <Text style={styles.headerSub}>
-            {totalCount === 0
-              ? 'Seznam je prázdný'
-              : `${checkedCount} / ${totalCount} hotovo`}
-          </Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Text style={styles.backText}>‹</Text>
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.headerTitle}>{list?.name ?? '...'}</Text>
+            <Text style={styles.headerSub}>
+              {items.length === 0
+                ? 'Seznam je prázdný'
+                : `${checked.length} / ${items.length} hotovo`}
+            </Text>
+          </View>
         </View>
         <View style={styles.headerActions}>
           {partnerCount < 2 && (
-            <TouchableOpacity
-              style={styles.inviteBtn}
-              onPress={() => setShowInvite(true)}
-            >
+            <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowInvite(true)}>
               <Text style={styles.inviteBtnText}>Pozvat</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={onLogOut} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Odhlásit</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -240,9 +172,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>
-                  Zatím nic. Přidej první položku níže!
-                </Text>
+                <Text style={styles.emptyText}>Zatím nic. Přidej první položku!</Text>
               </View>
             }
           />
@@ -259,11 +189,7 @@ export default function ListScreen({ user, onLogOut }: Props) {
 
       {/* Invite modal */}
       {showInvite && list && (
-        <InviteModal
-          mode="show"
-          inviteCode={list.inviteCode}
-          onClose={() => setShowInvite(false)}
-        />
+        <InviteModal mode="show" inviteCode={list.inviteCode} onClose={() => setShowInvite(false)} />
       )}
 
       {/* Edit quantity modal */}
@@ -277,16 +203,9 @@ export default function ListScreen({ user, onLogOut }: Props) {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            onPress={() => setEditingItem(null)}
-            activeOpacity={1}
-          />
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setEditingItem(null)} activeOpacity={1} />
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>
-              {editingItem?.text}
-            </Text>
-
+            <Text style={styles.modalTitle}>{editingItem?.text}</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Množství (nechej prázdné pro odstranění)"
@@ -296,7 +215,6 @@ export default function ListScreen({ user, onLogOut }: Props) {
               keyboardType="numeric"
               autoFocus
             />
-
             <View style={styles.unitRow}>
               {UNITS.map((u) => (
                 <TouchableOpacity
@@ -304,24 +222,15 @@ export default function ListScreen({ user, onLogOut }: Props) {
                   style={[styles.unitBtn, editUnit === u && styles.unitBtnActive]}
                   onPress={() => setEditUnit(u)}
                 >
-                  <Text style={[styles.unitBtnText, editUnit === u && styles.unitBtnTextActive]}>
-                    {u}
-                  </Text>
+                  <Text style={[styles.unitBtnText, editUnit === u && styles.unitBtnTextActive]}>{u}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setEditingItem(null)}
-              >
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setEditingItem(null)}>
                 <Text style={styles.modalCancelText}>Zrušit</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalSaveBtn}
-                onPress={handleSaveQuantity}
-              >
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveQuantity}>
                 <Text style={styles.modalSaveText}>Uložit</Text>
               </TouchableOpacity>
             </View>
@@ -333,68 +242,33 @@ export default function ListScreen({ user, onLogOut }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 28,
-    gap: 16,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  headerLeft: {
-    gap: 2,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a1a',
-  },
-  headerSub: {
-    fontSize: 13,
-    color: '#888',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  backBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  backText: { fontSize: 32, color: '#2563eb', lineHeight: 36 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
+  headerSub: { fontSize: 12, color: '#888' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 8 },
   inviteBtn: {
     backgroundColor: '#eff6ff',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  inviteBtnText: {
-    color: '#2563eb',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  logoutBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-  },
-  logoutText: {
-    color: '#aaa',
-    fontSize: 13,
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 0,
-  },
+  inviteBtnText: { color: '#2563eb', fontSize: 14, fontWeight: '600' },
+  listContent: { padding: 16, paddingBottom: 0 },
+  emptyBox: { alignItems: 'center', paddingTop: 60, paddingBottom: 20 },
+  emptyText: { color: '#bbb', fontSize: 15 },
   separator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -402,63 +276,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 4,
   },
-  separatorLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e5e5e5',
-  },
-  separatorLabel: {
-    fontSize: 12,
-    color: '#aaa',
-    fontWeight: '500',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  emptyText: {
-    color: '#bbb',
-    fontSize: 15,
-  },
-  // Setup screen
-  setupTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    textAlign: 'center',
-  },
-  setupBody: {
-    fontSize: 15,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 8,
-  },
-  setupButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    alignSelf: 'stretch',
-  },
-  setupButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  setupButtonSecondary: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  setupButtonSecondaryText: {
-    color: '#2563eb',
-    fontSize: 15,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
+  separatorLine: { flex: 1, height: 1, backgroundColor: '#e5e5e5' },
+  separatorLabel: { fontSize: 12, color: '#aaa', fontWeight: '500' },
   undoToast: {
     position: 'absolute',
     bottom: 16,
@@ -472,33 +291,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  undoText: {
-    color: '#fff',
-    fontSize: 15,
-  },
-  undoButton: {
-    color: '#60a5fa',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  // Edit quantity modal
+  undoText: { color: '#fff', fontSize: 15 },
+  undoButton: { color: '#60a5fa', fontSize: 15, fontWeight: '600' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  modalBox: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    gap: 14,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1a1a1a',
-  },
+  modalBox: { backgroundColor: '#fff', borderRadius: 16, padding: 20, gap: 14 },
+  modalTitle: { fontSize: 17, fontWeight: '600', color: '#1a1a1a' },
   modalInput: {
     backgroundColor: '#f5f5f5',
     borderRadius: 10,
@@ -507,50 +309,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1a1a1a',
   },
-  unitRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  unitBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-  },
-  unitBtnActive: {
-    backgroundColor: '#2563eb',
-  },
-  unitBtnText: {
-    fontSize: 14,
-    color: '#555',
-    fontWeight: '500',
-  },
-  unitBtnTextActive: {
-    color: '#fff',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 4,
-  },
-  modalCancelBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  modalCancelText: {
-    color: '#888',
-    fontSize: 15,
-  },
-  modalSaveBtn: {
-    backgroundColor: '#2563eb',
-    borderRadius: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  modalSaveText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  unitRow: { flexDirection: 'row', gap: 8 },
+  unitBtn: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, backgroundColor: '#f5f5f5' },
+  unitBtnActive: { backgroundColor: '#2563eb' },
+  unitBtnText: { fontSize: 14, color: '#555', fontWeight: '500' },
+  unitBtnTextActive: { color: '#fff' },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
+  modalCancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
+  modalCancelText: { color: '#888', fontSize: 15 },
+  modalSaveBtn: { backgroundColor: '#2563eb', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
+  modalSaveText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

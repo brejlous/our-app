@@ -23,16 +23,24 @@ function generateInviteCode(): string {
   return code;
 }
 
-export async function createList(userId: string): Promise<string> {
+export async function createList(userId: string, name: string = 'Nákupní seznam'): Promise<string> {
   const inviteCode = generateInviteCode();
   const docRef = await addDoc(collection(db, 'lists'), {
-    name: 'Nákupní seznam',
+    name: name.trim() || 'Nákupní seznam',
     createdBy: userId,
     members: [userId],
     inviteCode,
     createdAt: serverTimestamp(),
   });
   return docRef.id;
+}
+
+export async function deleteList(listId: string): Promise<void> {
+  await deleteDoc(doc(db, 'lists', listId));
+}
+
+export async function renameList(listId: string, name: string): Promise<void> {
+  await updateDoc(doc(db, 'lists', listId), { name: name.trim() });
 }
 
 export async function joinListByCode(code: string, userId: string): Promise<void> {
