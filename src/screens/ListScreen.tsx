@@ -166,11 +166,16 @@ export default function ListScreen({ user, onLogOut }: Props) {
   }
 
   // ── Main list view ─────────────────────────────────────────────────────────
-  const sortedItems = [...items].sort((a, b) => {
-    if (a.checked === b.checked) return 0;
-    return a.checked ? 1 : -1;
-  });
-  const checkedCount = items.filter((i) => i.checked).length;
+  const visibleItems = items.filter(i => i.id !== deletedItem?.id);
+  const unchecked = visibleItems.filter(i => !i.checked);
+  const checked = visibleItems.filter(i => i.checked);
+
+  type ListRow = ShoppingItem | { type: 'separator'; count: number };
+  const listData: ListRow[] = unchecked.length > 0 && checked.length > 0
+    ? [...unchecked, { type: 'separator', count: checked.length }, ...checked]
+    : [...unchecked, ...checked];
+
+  const checkedCount = checked.length;
   const totalCount = items.length;
   const partnerCount = list ? list.members.length : 1;
 
@@ -210,16 +215,27 @@ export default function ListScreen({ user, onLogOut }: Props) {
       ) : (
         <View style={{ flex: 1 }}>
           <FlatList
-            data={sortedItems.filter(i => i.id !== deletedItem?.id)}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <SwipeableItemRow
-                item={item}
-                onToggle={() => handleToggle(item.id, item.checked)}
-                onDelete={() => handleDelete(item)}
-                onEditQuantity={() => openEditQuantity(item)}
-              />
-            )}
+            data={listData}
+            keyExtractor={(item) => 'type' in item ? 'separator' : item.id}
+            renderItem={({ item }) => {
+              if ('type' in item) {
+                return (
+                  <View style={styles.separator}>
+                    <View style={styles.separatorLine} />
+                    <Text style={styles.separatorLabel}>Hotovo ({item.count})</Text>
+                    <View style={styles.separatorLine} />
+                  </View>
+                );
+              }
+              return (
+                <SwipeableItemRow
+                  item={item}
+                  onToggle={() => handleToggle(item.id, item.checked)}
+                  onDelete={() => handleDelete(item)}
+                  onEditQuantity={() => openEditQuantity(item)}
+                />
+              );
+            }}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
@@ -378,6 +394,23 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingBottom: 0,
+  },
+  separator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e5e5',
+  },
+  separatorLabel: {
+    fontSize: 12,
+    color: '#aaa',
+    fontWeight: '500',
   },
   emptyBox: {
     alignItems: 'center',

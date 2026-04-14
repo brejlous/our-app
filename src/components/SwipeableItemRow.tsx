@@ -32,11 +32,11 @@ export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuant
     });
 
     return (
-      <TouchableOpacity style={styles.deleteAction} onPress={handleDelete} activeOpacity={0.85}>
+      <View style={styles.deleteAction}>
         <Animated.Text style={[styles.deleteIcon, { transform: [{ scale }] }]}>
           🗑️
         </Animated.Text>
-      </TouchableOpacity>
+      </View>
     );
   }
 
@@ -49,7 +49,7 @@ export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuant
         renderRightActions={renderRightActions}
         rightThreshold={40}
         onSwipeableOpen={(direction) => {
-          if (direction === 'right') return;
+          if (direction === 'left') return;
           handleDelete();
         }}
       >
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ef4444',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 72,
+    width: 80,
     marginBottom: 8,
     borderRadius: 12,
   },
