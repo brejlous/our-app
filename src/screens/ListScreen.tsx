@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from 'firebase/auth';
 import { useList } from '../hooks/useList';
 import { useItems } from '../hooks/useItems';
 import { createList, addItem, deleteItem, toggleItem } from '../lib/firestore';
-import ItemRow from '../components/ItemRow';
+import { ShoppingItem } from '../types';
+import SwipeableItemRow from '../components/SwipeableItemRow';
 import AddItemBar from '../components/AddItemBar';
 import InviteModal from '../components/InviteModal';
 
@@ -29,6 +31,11 @@ export default function ListScreen({ user, onLogOut }: Props) {
   const [showInvite, setShowInvite] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [creatingList, setCreatingList] = useState(false);
+
+  // Undo delete state
+  const [deletedItem, setDeletedItem] = useState<ShoppingItem | null>(null);
+  const undoOpacity = useRef(new Animated.Value(0)).current;
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handleCreateList() {
     setCreatingList(true);
@@ -59,13 +66,29 @@ export default function ListScreen({ user, onLogOut }: Props) {
     }
   }
 
-  async function handleDelete(itemId: string) {
+  async function handleDelete(item: ShoppingItem) {
     if (!list) return;
-    try {
-      await deleteItem(list.id, itemId);
-    } catch {
-      Alert.alert('Chyba', 'Nepodařilo se smazat položku.');
-    }
+    // Save item for potential undo, then delete after 5s
+    setDeletedItem(item);
+    // Fade in undo toast
+    Animated.timing(undoOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    // Clear previous timer
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(async () => {
+      setDeletedItem(null);
+      Animated.timing(undoOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      try {
+        await deleteItem(list.id, item.id);
+      } catch {
+        Alert.alert('Chyba', 'Nepodařilo se smazat položku.');
+      }
+    }, 5000);
+  }
+
+  function handleUndo() {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setDeletedItem(null);
+    Animated.timing(undoOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
   }
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -160,13 +183,13 @@ export default function ListScreen({ user, onLogOut }: Props) {
         <ActivityIndicator style={{ flex: 1 }} color="#2563eb" />
       ) : (
         <FlatList
-          data={sortedItems}
+          data={sortedItems.filter(i => i.id !== deletedItem?.id)}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <ItemRow
+            <SwipeableItemRow
               item={item}
               onToggle={() => handleToggle(item.id, item.checked)}
-              onDelete={() => handleDelete(item.id)}
+              onDelete={() => handleDelete(item)}
             />
           )}
           contentContainerStyle={styles.listContent}
@@ -179,6 +202,14 @@ export default function ListScreen({ user, onLogOut }: Props) {
             </View>
           }
         />
+
+        {/* Undo toast */}
+        <Animated.View style={[styles.undoToast, { opacity: undoOpacity }]}>
+          <Text style={styles.undoText}>Položka smazána</Text>
+          <TouchableOpacity onPress={handleUndo}>
+            <Text style={styles.undoButton}>Vrátit zpět</Text>
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       {/* Invite modal */}
@@ -302,5 +333,27 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  undoToast: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  undoText: {
+    color: '#fff',
+    fontSize: 15,
+  },
+  undoButton: {
+    color: '#60a5fa',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
