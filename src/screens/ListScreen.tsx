@@ -36,10 +36,11 @@ export default function ListScreen({ user, route, navigation }: Props) {
 
   const [showInvite, setShowInvite] = useState(false);
 
-  // Undo delete state
-  const [deletedItem, setDeletedItem] = useState<ShoppingItem | null>(null);
+  // Undo delete state — supports multiple simultaneous pending deletes
+  const [pendingIds, setPendingIds] = useState<string[]>([]);
+  const pendingItems = useRef<Map<string, ShoppingItem>>(new Map());
+  const pendingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const undoOpacity = useRef(new Animated.Value(0)).current;
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Edit quantity modal state
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
@@ -63,24 +64,49 @@ export default function ListScreen({ user, route, navigation }: Props) {
   }
 
   async function handleDelete(item: ShoppingItem) {
-    setDeletedItem(item);
-    Animated.timing(undoOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    undoTimer.current = setTimeout(async () => {
-      setDeletedItem(null);
-      Animated.timing(undoOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+    pendingItems.current.set(item.id, item);
+    setPendingIds(prev => {
+      if (prev.length === 0) {
+        Animated.timing(undoOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      }
+      return [...prev, item.id];
+    });
+
+    const timerId = setTimeout(async () => {
+      pendingItems.current.delete(item.id);
+      pendingTimers.current.delete(item.id);
+      setPendingIds(prev => {
+        const next = prev.filter(id => id !== item.id);
+        if (next.length === 0) {
+          Animated.timing(undoOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+        }
+        return next;
+      });
       try {
         await deleteItem(listId, item.id);
       } catch {
         Alert.alert('Chyba', 'Nepodařilo se smazat položku.');
       }
     }, 5000);
+
+    pendingTimers.current.set(item.id, timerId);
   }
 
   function handleUndo() {
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    setDeletedItem(null);
-    Animated.timing(undoOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+    // Undo the most recently deleted item
+    setPendingIds(prev => {
+      if (prev.length === 0) return prev;
+      const lastId = prev[prev.length - 1];
+      const timerId = pendingTimers.current.get(lastId);
+      if (timerId) clearTimeout(timerId);
+      pendingTimers.current.delete(lastId);
+      pendingItems.current.delete(lastId);
+      const next = prev.slice(0, -1);
+      if (next.length === 0) {
+        Animated.timing(undoOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      }
+      return next;
+    });
   }
 
   function openEditQuantity(item: ShoppingItem) {
@@ -101,7 +127,7 @@ export default function ListScreen({ user, route, navigation }: Props) {
     setEditingItem(null);
   }
 
-  const visibleItems = items.filter(i => i.id !== deletedItem?.id);
+  const visibleItems = items.filter(i => !pendingIds.includes(i.id));
   const unchecked = visibleItems.filter(i => !i.checked);
   const checked = visibleItems.filter(i => i.checked);
 
