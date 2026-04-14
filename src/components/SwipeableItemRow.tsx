@@ -8,9 +8,10 @@ interface Props {
   onToggle: () => void;
   onDelete: () => void;
   onEditQuantity: () => void;
+  isPending?: boolean;
 }
 
-export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuantity }: Props) {
+export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuantity, isPending }: Props) {
   const swipeableRef = useRef<Swipeable>(null);
 
   function handleDelete() {
@@ -42,18 +43,19 @@ export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuant
   return (
     <Swipeable
         ref={swipeableRef}
-        renderRightActions={renderRightActions}
+        renderRightActions={isPending ? undefined : renderRightActions}
         rightThreshold={40}
+        enabled={!isPending}
         onSwipeableOpen={(direction) => {
           if (direction === 'left') return;
           handleDelete();
         }}
       >
-        <View style={styles.row}>
+        <View style={[styles.row, isPending && styles.rowPending]}>
           <TouchableOpacity
             style={styles.mainArea}
-            onPress={onToggle}
-            activeOpacity={0.7}
+            onPress={isPending ? undefined : onToggle}
+            activeOpacity={isPending ? 1 : 0.7}
           >
             <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
               {item.checked && <Text style={styles.checkmark}>✓</Text>}
@@ -63,7 +65,7 @@ export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuant
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onEditQuantity} style={styles.quantityArea} activeOpacity={0.6}>
+          <TouchableOpacity onPress={isPending ? undefined : onEditQuantity} style={styles.quantityArea} activeOpacity={isPending ? 1 : 0.6}>
             {hasQuantity ? (
               <Text style={[styles.quantityBadge, item.checked && styles.quantityChecked]}>
                 {item.quantity} {item.unit}
@@ -78,6 +80,7 @@ export default function SwipeableItemRow({ item, onToggle, onDelete, onEditQuant
 }
 
 const styles = StyleSheet.create({
+  rowPending: { opacity: 0.35 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -127,9 +127,8 @@ export default function ListScreen({ user, route, navigation }: Props) {
     setEditingItem(null);
   }
 
-  const visibleItems = items.filter(i => !pendingIds.includes(i.id));
-  const unchecked = visibleItems.filter(i => !i.checked);
-  const checked = visibleItems.filter(i => i.checked);
+  const unchecked = items.filter(i => !i.checked);
+  const checked = items.filter(i => i.checked);
 
   type ListRow = ShoppingItem | { type: 'separator'; count: number };
   const listData: ListRow[] = unchecked.length > 0 && checked.length > 0
@@ -151,7 +150,7 @@ export default function ListScreen({ user, route, navigation }: Props) {
             <Text style={styles.headerSub}>
               {items.length === 0
                 ? 'Seznam je prázdný'
-                : `${checked.length} / ${items.length} hotovo`}
+                : `${checked.filter(i => !pendingIds.includes(i.id)).length} / ${items.filter(i => !pendingIds.includes(i.id)).length} hotovo`}
             </Text>
           </View>
         </View>
@@ -191,6 +190,7 @@ export default function ListScreen({ user, route, navigation }: Props) {
                   onToggle={() => handleToggle(item.id, item.checked)}
                   onDelete={() => handleDelete(item)}
                   onEditQuantity={() => openEditQuantity(item)}
+                  isPending={pendingIds.includes(item.id)}
                 />
               );
             }}
