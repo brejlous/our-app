@@ -1,8 +1,11 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, getAuth } from 'firebase/auth';
-// getReactNativePersistence lives in @firebase/auth's react-native bundle.
-// Metro resolves it correctly at runtime; the .d.ts augmentation satisfies TypeScript.
-import { getReactNativePersistence } from '@firebase/auth';
+import { initializeAuth, getAuth, Persistence } from 'firebase/auth';
+// Metro resolves firebase/auth to its react-native bundle at runtime which exports
+// getReactNativePersistence; TypeScript browser types don't include it, so we reach in.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { getReactNativePersistence } = require('firebase/auth') as {
+  getReactNativePersistence: (storage: unknown) => Persistence;
+};
 import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
