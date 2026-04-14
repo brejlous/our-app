@@ -15,6 +15,8 @@ export interface ShoppingList {
   createdAt: Timestamp;
 }
 
+export type ItemUnit = 'ks' | 'g' | 'kg' | 'ml' | 'l';
+
 export interface ShoppingItem {
   id: string;
   text: string;
@@ -23,4 +25,6 @@ export interface ShoppingItem {
   addedAt: Timestamp;
   checkedAt: Timestamp | null;
   checkedBy: string | null;
+  quantity: number | null;
+  unit: ItemUnit | null;
 }

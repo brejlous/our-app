@@ -70,7 +70,13 @@ export async function joinListByCode(code: string, userId: string): Promise<void
   });
 }
 
-export async function addItem(listId: string, text: string, userId: string): Promise<void> {
+export async function addItem(
+  listId: string,
+  text: string,
+  userId: string,
+  quantity?: number | null,
+  unit?: string | null,
+): Promise<void> {
   await addDoc(collection(db, 'lists', listId, 'items'), {
     text: text.trim(),
     checked: false,
@@ -78,6 +84,8 @@ export async function addItem(listId: string, text: string, userId: string): Pro
     addedAt: serverTimestamp(),
     checkedAt: null,
     checkedBy: null,
+    quantity: quantity ?? null,
+    unit: unit ?? null,
   });
 }
 

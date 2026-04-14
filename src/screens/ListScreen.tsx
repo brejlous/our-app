@@ -14,7 +14,7 @@ import { User } from 'firebase/auth';
 import { useList } from '../hooks/useList';
 import { useItems } from '../hooks/useItems';
 import { createList, addItem, deleteItem, toggleItem } from '../lib/firestore';
-import { ShoppingItem } from '../types';
+import { ShoppingItem, ItemUnit } from '../types';
 import SwipeableItemRow from '../components/SwipeableItemRow';
 import AddItemBar from '../components/AddItemBar';
 import InviteModal from '../components/InviteModal';
@@ -48,10 +48,10 @@ export default function ListScreen({ user, onLogOut }: Props) {
     }
   }
 
-  async function handleAddItem(text: string) {
+  async function handleAddItem(text: string, quantity: number | null, unit: ItemUnit | null) {
     if (!list) return;
     try {
-      await addItem(list.id, text, user.uid);
+      await addItem(list.id, text, user.uid, quantity, unit);
     } catch {
       Alert.alert('Chyba', 'Nepodařilo se přidat položku.');
     }

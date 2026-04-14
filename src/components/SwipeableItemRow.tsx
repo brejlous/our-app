@@ -61,6 +61,11 @@ export default function SwipeableItemRow({ item, onToggle, onDelete }: Props) {
           <Text style={[styles.text, item.checked && styles.textChecked]}>
             {item.text}
           </Text>
+          {item.quantity != null && item.unit != null && (
+            <Text style={[styles.quantity, item.checked && styles.quantityChecked]}>
+              {item.quantity} {item.unit}
+            </Text>
+          )}
         </TouchableOpacity>
       </Swipeable>
     </GestureHandlerRootView>
@@ -109,6 +114,14 @@ const styles = StyleSheet.create({
   textChecked: {
     textDecorationLine: 'line-through',
     color: '#aaa',
+  },
+  quantity: {
+    fontSize: 13,
+    color: '#888',
+    fontWeight: '500',
+  },
+  quantityChecked: {
+    color: '#ccc',
   },
   deleteAction: {
     backgroundColor: '#ef4444',
